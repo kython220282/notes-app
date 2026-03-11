@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Notes Application</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f6f8fa;
+      --card:#ffffff;
+      --accent:#2b6cb0;
+      --muted:#6b7280;
+      --border:#e6e8eb;
+      --shadow: 0 1px 2px rgba(16,24,40,0.05);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color-scheme: light;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:#0f1724}
+    .app{
+      max-width:1100px;
+      margin:28px auto;
+      padding:20px;
+    }
+    header{
+      display:flex;
+      align-items: center;
+      justify-content: center; /* Added to center align the header */
+      gap:12px;
+      margin-bottom:14px;
+    }
+    header h1{
+      font-size:20px;
+      margin:0;
+      letter-spacing:0.2px;
+    }
+    subtitle{
+      display:block;
+      text-align:center;
+      color:var(--muted);
+      font-size:14px;
+      margin-bottom:24px;
+    }
+    .main{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:16px;
+      align-items:start;
+      border-radius: 6px;
+    }
+    @media (max-width:980px){
+      .main{grid-template-columns: 1fr; }
+      .download-row{margin-top:14px}
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);
+      border-radius:8px;
+      padding:12px;
+    }
+    .card h3{
+      margin:0 0 10px 0;
+      font-size:15px;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-bottom:10px;
+    }
+    label{font-size:13px;color:var(--muted)}
+    input[type="date"],
+    input[type="text"],
+    textarea,
+    select {
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:6px;
+      font-size:14px;
+      background: #fff;
+      outline:none;
+    }
+    textarea{min-height:160px; resize:vertical; white-space:pre-wrap}
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:6px;
+      border:0;
+      cursor:pointer;
+      font-weight:600;
+      background:var(--accent);
+      color:#fff;
+      font-size:14px;
+    }
+    .btn.secondary{
+      background:transparent;
+      color:var(--accent);
+      border:1px solid var(--accent);
+      font-weight:600;
+    }
+    .actions{display:flex; gap:8px; align-items:center; margin-top:6px}
+    .output-note h4{margin:6px 0 6px 0}
+    .note-card{
+      padding:10px;
+      border-radius:6px;
+      border:1px solid rgba(15,23,36,0.06);
+      margin-bottom:10px;
+      background: linear-gradient(180deg,#fff,#fbfdff);
+    }
+    .note-meta{font-size:12px;color:var(--muted);margin-bottom:6px}
+    .note-body{white-space:pre-wrap;font-size:14px}
+    .placeholder{color:var(--muted);font-size:13px;padding:8px 4px}
+    .download-row{margin-top:16px;text-align:center}
+    .small{font-size:12px;color:var(--muted)}
+    footer { margin-top:16px; text-align:center; color:var(--muted); font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>NOTES APPLICATION</h1>
+    </header>
+    <subtitle class="small">Enter your note details in "New Note" section, see the most recent saved note in the "Output" section, and all notes saved in on-going session under "Notes saved".</subtitle>
+    
+    <div class="main">
+      <!-- Column 1: Input -->
+      <div class="card" id="inputCard">
+        <h3>NEW NOTE</h3>
+        <div class="field">
+          <label for="noteDate">Date of note</label>
+          <input type="date" id="noteDate" />
+        </div>
+
+        <div class="field">
+          <label for="noteTopic">Topic </label>
+          <input type="text" id="noteTopic" placeholder="Enter topic" />
+        </div>
+
+        <div class="field">
+          <label for="noteBody">Notes</label>
+          <textarea id="noteBody" placeholder="Write your note here..."></textarea>
+        </div>
+
+        <div class="field">
+          <label for="noteTags">Tags (comma-separated)</label>
+          <input type="text" id="noteTags" placeholder="e.g., work, personal, ideas" />
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="saveBtn">Save</button>
+          <button class="btn secondary" id="clearBtn" title="Clear inputs">Clear</button>
+        </div>
+      </div>
+
+      <!-- Column 2: Output (last saved) -->
+      <div class="card" id="outputCard">
+        <h3>OUTPUT (Recent Saved)</h3>
+        <div id="outputArea" class="output-note">
+          <div class="placeholder">No notes saved yet — save a note to see it here.</div>
+        </div>
+      </div>
+
+      <!-- Column 3: Notes Saved -->
+      <div class="card" id="savedCard">
+        <h3>NOTES SAVED (Recent → Oldest)</h3>
+        <div id="notesList">
+          <div class="placeholder">No saved notes in this session.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="download-row">
+      <button class="btn" id="downloadBtn">Download all notes (.md)</button>
+    </div>
+
+    <footer>
+      Notes saved in this session only. Use the download button to export as Markdown. Data is stored locally in your browser and is not shared with any server.
+    </footer>
+  </div>
+
+  <script>
+    (function(){
+      // Utilities
+      function todayISO(){
+        const d=new Date();
+        const mm=String(d.getMonth()+1).padStart(2,'0');
+        const dd=String(d.getDate()).padStart(2,'0');
+        return d.getFullYear()+'-'+mm+'-'+dd;
+      }
+      function formatDMY(iso){
+        if(!iso) return '';
+        const [y,m,d]=iso.split('-');
+        return d + '-' + m + '-' + y;
+      }
+      function mdEscape(s){
+        return s.replace(/^#/mg, '\\#');
+      }
+
+      // DOM
+      const dateInput = document.getElementById('noteDate');
+      const topicInput = document.getElementById('noteTopic');
+      const bodyInput = document.getElementById('noteBody');
+      const tagsInput = document.getElementById('noteTags');
+      const saveBtn = document.getElementById('saveBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const outputArea = document.getElementById('outputArea');
+      const notesList = document.getElementById('notesList');
+      const downloadBtn = document.getElementById('downloadBtn');
+
+      // Storage key (session storage keeps things to the tab session)
+      const STORAGE_KEY = 'krs_notes_session_v1';
+      let notes = [];
+
+      // Initialize date to today
+      dateInput.value = todayISO();
+
+      // Load existing from sessionStorage
+      function loadFromStorage(){
+        try{
+          const raw = sessionStorage.getItem(STORAGE_KEY);
+          if(raw){
+            const parsed = JSON.parse(raw);
+            if(Array.isArray(parsed)) notes = parsed;
+          }
+        }catch(e){
+          console.warn('Failed to load notes from sessionStorage', e);
+        }
+      }
+      function saveToStorage(){
+        try{
+          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+        }catch(e){
+          console.warn('Failed to save notes to sessionStorage', e);
+        }
+      }
+
+      function renderOutput(note){
+        outputArea.innerHTML = '';
+        if (!note) {
+          outputArea.innerHTML = '<div class="placeholder">No notes saved yet — save a note to see it here.</div>';
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        const elTopic = document.createElement('h4');
+        elTopic.textContent = note.topic || '(no topic)';
+        const elMeta = document.createElement('div');
+        elMeta.className = 'note-meta';
+        elMeta.textContent = `Date: ${formatDMY(note.date)}${note.savedAt ? ` • Saved: ${(new Date(note.savedAt)).toLocaleString()}` : ''}`;
+        const elBody = document.createElement('div');
+        elBody.className = 'note-body';
+        elBody.textContent = note.body || '';
+        const elTags = document.createElement('div');
+        elTags.className = 'note-meta';
+        elTags.textContent = `Tags: ${note.tags && note.tags.length ? note.tags.join(', ') : 'None'}`;
+        fragment.appendChild(elTopic);
+        fragment.appendChild(elMeta);
+        fragment.appendChild(elBody);
+        fragment.appendChild(elTags);
+        outputArea.appendChild(fragment);
+      }
+
+      function renderNotesList(){
+        notesList.innerHTML = '';
+        if (!notes.length) {
+          notesList.innerHTML = '<div class="placeholder">No saved notes in this session.</div>';
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        notes.forEach((note, idx) => {
+          const card = document.createElement('div');
+          card.className = 'note-card';
+          const meta = document.createElement('div');
+          meta.className = 'note-meta';
+          meta.textContent = `${idx + 1}. ${note.topic || '(no topic)'} • ${formatDMY(note.date)}${note.savedAt ? ` • saved ${(new Date(note.savedAt)).toLocaleTimeString()}` : ''}`;
+          const body = document.createElement('div');
+          body.className = 'note-body';
+          body.textContent = note.body || '';
+          const tags = document.createElement('div');
+          tags.className = 'note-meta';
+          tags.textContent = `Tags: ${note.tags && note.tags.length ? note.tags.join(', ') : 'None'}`;
+          card.appendChild(meta);
+          card.appendChild(body);
+          card.appendChild(tags);
+          fragment.appendChild(card);
+        });
+        notesList.appendChild(fragment);
+      }
+
+      function validateInputs(){
+        if (!topicInput.value.trim()) {
+          alert('Please enter a topic for the note.');
+          topicInput.focus();
+          return false;
+        }
+        if (!bodyInput.value.trim()) {
+          const ok = confirm('The note text is empty. Do you want to save an empty note?');
+          if (!ok) return false;
+        }
+        const tags = noteTags.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+        if (tags.length < 1) {
+          alert('Please enter at least one tag.');
+          noteTags.focus();
+          return false;
+        }
+        if (tags.length > 4) {
+          alert('You can enter a maximum of 4 tags.');
+          noteTags.focus();
+          return false;
+        }
+        return true;
+      }
+
+      // Save action
+      function saveNote(){
+        if (!validateInputs()) return;
+        const tags = noteTags.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+        const note = {
+          date: dateInput.value || todayISO(),
+          topic: topicInput.value.trim(),
+          body: bodyInput.value,
+          tags: tags,
+          savedAt: new Date().toISOString()
+        };
+        notes.unshift(note);
+        saveToStorage();
+        renderOutput(note);
+        renderNotesList();
+        topicInput.value = '';
+        bodyInput.value = '';
+        noteTags.value = '';
+        topicInput.focus();
+      }
+
+      // Clear inputs
+      function clearInputs(){
+        dateInput.value = todayISO();
+        topicInput.value = '';
+        bodyInput.value = '';
+        noteTags.value = '';
+        topicInput.focus();
+      }
+
+      // Build markdown and download
+      function downloadMarkdown(){
+        if(!notes.length){
+          alert('No notes to download.');
+          return;
+        }
+        let md = '';
+        notes.forEach((n, i) => {
+          md += `#### ${mdEscape(n.topic || '(no topic)')}
+
+`;
+          md += `Date: ${formatDMY(n.date)}\n\n`;
+          md += `${mdEscape(n.body || '')}\n\n`;
+          if(i < notes.length - 1) md += '---\n\n';
+        });
+        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        const filename = `note_${dd}_${mm}_${yyyy}.md`;
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      // Event listeners
+      saveBtn.addEventListener('click', saveNote);
+      clearBtn.addEventListener('click', clearInputs);
+      downloadBtn.addEventListener('click', function() {
+        if (!notes.length) {
+          alert('No notes to download.');
+          return;
+        }
+        let md = '';
+        notes.forEach((n, i) => {
+          md += `#### ${mdEscape(n.topic || '(no topic)')}
+
+`;
+          md += `Date: ${formatDMY(n.date)}\n\n`;
+          md += `${mdEscape(n.body || '')}\n\n`;
+          if(i < notes.length - 1) md += '---\n\n';
+        });
+        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        const filename = `note_${dd}_${mm}_${yyyy}.md`;
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
+
+      // Keyboard shortcut: Ctrl/Cmd+Enter to save
+      document.addEventListener('keydown', function(e){
+        if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+          e.preventDefault();
+          saveNote();
+        }
+      });
+
+      // Initialize
+      loadFromStorage();
+      renderNotesList();
+      // Show the most recent note in output if any
+      renderOutput(notes[0]);
+
+    })();
+  </script>
+</body>
+</html>
